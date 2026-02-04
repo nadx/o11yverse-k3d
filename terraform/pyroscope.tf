@@ -1,6 +1,7 @@
 # -----------------------------------------------------------------------------
 # Pyroscope (continuous profiling)
 # Accepts pprof-compatible profiles; flamegraphs in Grafana.
+# Alloy subchart disabled so we only deploy Pyroscope (apps push via OTLP/pprof).
 # -----------------------------------------------------------------------------
 
 resource "helm_release" "pyroscope" {
@@ -10,18 +11,22 @@ resource "helm_release" "pyroscope" {
   version    = var.helm_pyroscope_version
   namespace  = kubernetes_namespace.observability.metadata[0].name
 
+  timeout = 600
+
   values = [
     yamlencode({
-      # Single replica, no persistence for local testbed
-      persistence = {
+      # Disable Alloy subchart (default: true) to avoid extra pods and timeout on single-node
+      alloy = {
         enabled = false
       }
-      # Pyroscope accepts OTLP and pprof
-      config = {
-        limits = {
-          ingestion-rate-limit = 10000
-          max-global-series-per-user = 10000
+
+      pyroscope = {
+        persistence = {
+          enabled = false
         }
+        # Do not set structuredConfig with custom limits - field names differ by version
+        # and cause "field ingestion_rate_limit not found in type validation.plain".
+        # Use chart defaults; adjust limits via runtime config or chart docs if needed.
       }
     })
   ]

@@ -31,26 +31,9 @@ resource "helm_release" "otel_collector" {
         name = "otelcol-contrib"
       }
 
-      # Full config: OTLP in; traces→Tempo, metrics→Prometheus remote write, logs→Loki
-      # health_check extension is required for chart liveness/readiness probes
-      alternateConfig = {
-        extensions = {
-          health_check = {
-            endpoint = "$${env:MY_POD_IP}:13133"
-          }
-        }
-        receivers = {
-          otlp = {
-            protocols = {
-              grpc = {}
-              http = {}
-            }
-          }
-        }
-        processors = {
-          batch         = {}
-          memory_limiter = {}
-        }
+      # Custom config via config (schema does not allow alternateConfig): OTLP in → Tempo, Prometheus, Loki
+      # Default config provides health_check extension and otlp receiver; we add exporters and override pipelines
+      config = {
         exporters = {
           prometheusremotewrite = {
             endpoint = local.otel_prometheus_endpoint
@@ -66,7 +49,6 @@ resource "helm_release" "otel_collector" {
           }
         }
         service = {
-          extensions = ["health_check"]
           pipelines = {
             traces = {
               receivers  = ["otlp"]

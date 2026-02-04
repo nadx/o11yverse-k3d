@@ -141,7 +141,7 @@ Terraform uses the current kube context (e.g. your k3d cluster). No remote backe
 ### Key configuration points
 
 - **Grafana**: Exposed via NodePort (default `30300`). URL: `http://grafana.localtest.me:30300`. Admin password is set by `grafana_admin_password` in `variables.tf` (default `admin`).
-- **Collector**: Uses `opentelemetry-collector-contrib` image so the Loki exporter is available. Config is in `otel-collector.tf` via Helm `alternateConfig` (receivers, processors, exporters, pipelines).
+- **Collector**: Uses `opentelemetry-collector-contrib` image so the Loki exporter is available. Config is in `otel-collector.tf` via Helm `config` (exporters and pipelines; default provides health_check and OTLP receiver).
 - **Prometheus**: Remote write receiver enabled so the collector can push metrics; kube-prometheus-stack’s own Grafana is disabled.
 - **Versions**: All Helm chart versions are in `variables.tf` (e.g. `helm_prometheus_stack_version`, `helm_otel_collector_version`) for reproducibility.
 
