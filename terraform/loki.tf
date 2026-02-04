@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------
 # Loki (log aggregation)
-# Single binary or simple deployment for local testbed.
+# SingleBinary mode for local testbed (no object storage). Works on single-node k3d.
 # -----------------------------------------------------------------------------
 
 resource "helm_release" "loki" {
@@ -10,20 +10,41 @@ resource "helm_release" "loki" {
   version    = var.helm_loki_version
   namespace  = kubernetes_namespace.observability.metadata[0].name
 
+  # Allow more time for Loki to become ready; single-node can be slower
+  timeout = 600
+
   values = [
     yamlencode({
-      # Single binary mode for local dev
+      # SingleBinary: one pod, no object storage (SimpleScalable requires S3/GCS)
+      deploymentMode = "SingleBinary"
+
       singleBinary = {
         replicas = 1
+        # Allow scheduling on single-node cluster (default anti-affinity blocks this)
+        affinity = {}
         persistence = {
           enabled = false
         }
+        # Container runs with readOnlyRootFilesystem; ruler-storage needs writable /var/loki
+        extraVolumes = [
+          {
+            name = "loki-data"
+            emptyDir = {}
+          }
+        ]
+        extraVolumeMounts = [
+          {
+            name      = "loki-data"
+            mountPath = "/var/loki"
+          }
+        ]
       }
-      # Loki gateway for auth (optional; can be disabled for simplicity)
+
       gateway = {
         enabled = false
       }
-      # Ingester and distributor config
+
+      # Minimal Loki config for local dev: filesystem storage, test schema
       loki = {
         auth_enabled = false
         commonConfig = {
@@ -31,7 +52,20 @@ resource "helm_release" "loki" {
         }
         storage = {
           type = "filesystem"
+          filesystem = {
+            chunks_directory = "/var/loki/chunks"
+            rules_directory   = "/var/loki/rules"
+          }
         }
+        useTestSchema = true
+      }
+
+      # Reduce moving parts for local testbed
+      test = {
+        enabled = false
+      }
+      lokiCanary = {
+        enabled = false
       }
     })
   ]

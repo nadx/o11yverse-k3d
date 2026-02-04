@@ -71,14 +71,14 @@ variable "helm_tempo_version" {
 
 variable "helm_pyroscope_version" {
   type        = string
-  default     = "0.8.0"
-  description = "Pyroscope Helm chart version."
+  default     = "1.0.0"
+  description = "Pyroscope Helm chart version (0.8.0 not in Grafana repo; use 1.0.0 or newer)."
 }
 
 variable "helm_grafana_version" {
   type        = string
-  default     = "6.56.0"
-  description = "Grafana Helm chart version."
+  default     = "10.5.15"
+  description = "Grafana Helm chart version (chart 10.5.x ships Grafana OSS 12.3.x)."
 }
 
 variable "helm_otel_collector_version" {

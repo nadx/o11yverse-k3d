@@ -1,0 +1,16 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl
+terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+terraform.tfstate
+terraform.tfstate.backup
+crash.log
+crash.*.log
+
+# Terraform override files (local overrides, usually not committed)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
