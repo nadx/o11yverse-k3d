@@ -41,7 +41,7 @@ resource "helm_release" "grafana" {
             {
               name   = "Tempo"
               type   = "tempo"
-              url    = "http://tempo.${var.observability_namespace}.svc.cluster.local:3100"
+              url    = "http://tempo.${var.observability_namespace}.svc.cluster.local:3200"
               access = "proxy"
             },
             {

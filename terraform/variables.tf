@@ -65,8 +65,8 @@ variable "helm_loki_version" {
 
 variable "helm_tempo_version" {
   type        = string
-  default     = "1.5.0"
-  description = "Tempo Helm chart version."
+  default     = "1.24.4"
+  description = "Tempo Helm chart version (1.24.x ships Tempo 2.9.x; use tempo.tag for 2.10.x)."
 }
 
 variable "helm_pyroscope_version" {

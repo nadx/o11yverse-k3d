@@ -12,7 +12,13 @@ resource "helm_release" "tempo" {
 
   values = [
     yamlencode({
+      # Tempo app v2.10.0 for TraceQL and drilldown (chart default is 2.9.x)
       tempo = {
+        tag = "2.10.0"
+        # Required for TraceQL aggregations (e.g. rate() by()) and drilldown; "empty ring" = generator not enabled
+        metricsGenerator = {
+          enabled = true
+        }
         receivers = {
           otlp = {
             protocols = {

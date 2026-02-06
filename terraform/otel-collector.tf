@@ -1,7 +1,8 @@
 # -----------------------------------------------------------------------------
-# OpenTelemetry Collector (telemetry gateway)
-# Receives OTLP (gRPC/HTTP) from .NET apps; pipelines to Tempo, Prometheus, Loki.
-# Apps use OTEL_EXPORTER_OTLP_ENDPOINT to point to this collector's service.
+# OpenTelemetry Collector (DaemonSet: telemetry gateway + log collector)
+# - Receives OTLP (gRPC/HTTP) from apps; pipelines to Tempo, Prometheus, Loki.
+# - Collects container logs from each node (filelog -> Loki). No Promtail.
+# Apps use OTEL_EXPORTER_OTLP_ENDPOINT pointing at this collector's service.
 # -----------------------------------------------------------------------------
 
 locals {
@@ -17,23 +18,58 @@ resource "helm_release" "otel_collector" {
   version    = var.helm_otel_collector_version
   namespace  = kubernetes_namespace.observability.metadata[0].name
 
-  # Use contrib image for Loki exporter (and other contrib components)
   values = [
     yamlencode({
-      mode = "deployment"
+      # DaemonSet: one pod per node for OTLP + node-level log collection
+      mode = "daemonset"
+
+      # Service so apps can reach OTLP (disabled by default for daemonset)
+      service = {
+        enabled = true
+      }
 
       image = {
         repository = "otel/opentelemetry-collector-contrib"
-        pullPolicy  = "IfNotPresent"
+        pullPolicy = "IfNotPresent"
       }
 
       command = {
         name = "otelcol-contrib"
       }
 
-      # Custom config via config (schema does not allow alternateConfig): OTLP in → Tempo, Prometheus, Loki
-      # Default config provides health_check extension and otlp receiver; we add exporters and override pipelines
+      # Log collection from all containers: filelog reads /var/log/pods; chart adds volumes/mounts
+      # kubernetesAttributes: enrich logs with namespace, pod, container so Loki has labels for all namespaces
+      presets = {
+        logsCollection = {
+          enabled             = true
+          includeCollectorLogs = false
+          storeCheckpoints    = false
+        }
+        kubernetesAttributes = {
+          enabled = true
+        }
+      }
+
+      # Read all pod logs: /var/log/pods is often root-only on nodes; run as root so filelog can read every namespace
+      podSecurityContext = {}
+      securityContext = {
+        runAsUser  = 0
+        runAsGroup = 0
+      }
+
+      # OTLP + filelog (from preset) -> Tempo, Prometheus, Loki
       config = {
+        processors = {
+          # Copy k8s.namespace.name to "namespace" so Loki gets label namespace (Grafana query: {namespace="kube-system"})
+          transform = {
+            log_statements = [
+              {
+                context    = "resource"
+                statements = ["set(attributes[\"namespace\"], attributes[\"k8s.namespace.name\"])"]
+              }
+            ]
+          }
+        }
         exporters = {
           prometheusremotewrite = {
             endpoint = local.otel_prometheus_endpoint
@@ -60,9 +96,10 @@ resource "helm_release" "otel_collector" {
               processors = ["memory_limiter", "batch"]
               exporters  = ["prometheusremotewrite"]
             }
+            # otlp (app logs) + filelog (container logs from preset) -> Loki; transform sets namespace label
             logs = {
               receivers  = ["otlp"]
-              processors = ["memory_limiter", "batch"]
+              processors = ["memory_limiter", "transform", "batch"]
               exporters  = ["loki"]
             }
           }
